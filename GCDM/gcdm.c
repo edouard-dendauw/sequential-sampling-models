@@ -4,8 +4,8 @@
 #include <sys/time.h>
 #include <math.h>
 
-/* updated 3 May 2026
-compile with : gcc -shared -fPIC -Wshadow -o GCDM.so GCDM.c
+/* updated 4 May 2026
+compile with : gcc -shared -fPIC -Wshadow -o gcdm.so gcdm.c
 
 =====================================================================
 =                          GCDM parameters                          =
@@ -19,8 +19,8 @@ x_0    : starting point of the decision variable (in e)
 v      : drift rate (in e/s)
 g      : gating inhibition (in e)
 r      : response bound (in e)
-xi     : std dev of the white Gaussian noise at the corruption stage (in e/sqrt(s))
 lambda : leakage (in 1/s)
+beta   : urgency slope (in e/s)
 Te     : mean duration of sensory encoding and corticomuscular delay (in s)
 Tr     : mean duration of residual motor components related to force production (in s)
 sv     : between-trial variability in drift rate (in e/s; sampleV ~ N(v,sv^2))
@@ -33,6 +33,9 @@ MT          : predicted Motor Time for each trial (in s; includes Tr)
 firstHit    : predicted time at which the motor preparation variable reached a gating inhibition
               threshold for the first time for each trial (in s; includes Te)
 firstHitLoc : predicted location of the firstHit for each trial (1 if right side, 2 if left side)
+coactiv     : predicted binary indicator of coactivation (1 if both neural drives zU and zL are
+              simultaneously above 0 at any time during the trial, 0 otherwise)
+
 
 OTHER COMPUTATIONAL VARIABLES =======================================
 s       : diffusion coefficient (in e/sqrt(s))
@@ -47,6 +50,11 @@ NOTES ===============================================================
   Python using RT == -1.
 - The variables rangeLow, rangeHigh, and randomTable are used to simulate a random draw from a
   standard normal distribution (see Evans (2019). *Behavior Research Methods*).
+
+UPDATES =============================================================
+2024.1: approximation of the Kalman-Bucy filter at the motor preparation level (constant Kalman gain).
+2026.1a: completely removed transmission noise stage (xi = 0).
+2026.1b: added evidence-independent linear urgency at the motor preparation level.
 */
 
 
@@ -60,10 +68,10 @@ static inline double sample_normal(int rangeLow, int rangeHigh, double *tbl) {
 
 
 // MODEL SIMULATION FUNCTION ========================================
-void GCDM(double x_0, double v, double g, double r, double xi, double lambda,
+void GCDM(double x_0, double v, double g, double r, double lambda, double beta,
           double Te, double Tr, double sv,
           double *resp, double *RT, double *PMT, double *MT,
-          double *firstHit, double *firstHitLoc,
+          double *firstHit, double *firstHitLoc, double *coactiv,
           double s, double dt, int n, int maxiter,
           int rangeLow, int rangeHigh, double *randomTable) {
 
@@ -85,13 +93,14 @@ void GCDM(double x_0, double v, double g, double r, double xi, double lambda,
         MT[i]   = -1.0;
         firstHit[i]    = -1.0;
         firstHitLoc[i] = -1.0;
+        coactiv[i] = 0;
 
         // setting the starting point of :
-        double x       = x_0; // - the decision variable,
-        double tilde_x = x;   // - the corrupted decision variable,
-        double y       = x;   // - the motor prep variable,
-        double zU      = 0;   // - the neural drive of correct
-        double zL      = 0;   // - and incorrect effector.
+        double x   = x_0; // - the decision variable,
+        double y   = x;   // - the motor prep variable,
+        double u   = 0;   // - the urgency,
+        double zU  = 0;   // - the neural drive of correct
+        double zL  = 0;   // - and incorrect effector.
 
         // compute the drift rate of the trial (including between-trial variability or not).
         double sampleV;
@@ -115,17 +124,18 @@ void GCDM(double x_0, double v, double g, double r, double xi, double lambda,
             double randNormNum = sample_normal(rangeLow, rangeHigh, randomTable);
             x = x + (sampleV*dt) + (sqrt_dt*s*randNormNum);
 
-            // corrupted decision variable
-            randNormNum = sample_normal(rangeLow, rangeHigh, randomTable);
-            tilde_x = x + (xi*randNormNum);
-
             // motor preparation variable
-            y = y + lambda*(tilde_x - y)*dt;
+            y = y + lambda*(x - y)*dt;
+
+            // urgency process
+            u = beta*t;  // if u == 0, no urgency
 
             // neural drives for correct (upper bound)
             // and incorrect effectors (lower bound)
-            zU =  y - g;
-            zL = -y - g;
+            zU =  y - g + u;
+            zL = -y - g + u;
+
+            if ((zU > 0) && (zL > 0) && (coactiv[i]==0)) { coactiv[i] = 1; }
 
             if (((zU > 0) || (zL > 0)) && (outOfGate == false)) {
                 if (firstHit[i] < 0) {  // this is the first time the gate is overcome

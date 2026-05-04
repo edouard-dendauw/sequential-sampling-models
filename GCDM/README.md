@@ -2,11 +2,12 @@
 
 ## Reference
 
+Dendauw, E., Evans, N. J., Michel, E., Garnier-Allain, A., Gajdos Preuss, T., & Servant, M. (2025).  
+Deciding with muscles. *PsyArXiv preprint*. https://doi.org/10.31234/osf.io/7uwgn_v2  
+
 Dendauw, E., Evans, N. J., Logan, G. D., Haffen, E., Bennabi, D., Gajdos, T., & Servant, M. (2024). 
 The gated cascade diffusion model: An integrated theory of decision making, motor preparation, and motor execution. 
-*Psychological Review*, 131(4), 825–857. https://doi.org/10.1037/rev0000464
-
-**OSF**: https://osf.io/4unw6 
+*Psychological Review*, 131(4), 825–857. https://doi.org/10.1037/rev0000464 (OSF Project: https://osf.io/4unw6)
 
 ## Overview
 
@@ -22,28 +23,30 @@ The gated cascade diffusion model: An integrated theory of decision making, moto
   The gate determines the minimum amount of motor preparation required to excite muscle fibers
   and serves two main purposes: shield the system against unwanted behaviors and prevent low
   levels of accumulated evidence from exciting muscle fibers.
+- Additionally, an evidence-independent urgency signal at the motor preparation level is added
+  to the motor prepration to drive muscle activation to the response threshold when the quality 
+- of evidence is low or time pressure is high (see Discussion of Dendauw et al. 2024).
 - The response is issued when inputs to muscle fibers (neural drive) reach a threshold level of
   activation (response threshold).
 
 **Definitions :**
 
-| Name                                 | Label     | Equation                                                                            |
-|--------------------------------------|-----------|-------------------------------------------------------------------------------------|
-| decision variable                    | `x`       | $dx(t) = vdt + \sigma dW(t), \quad x(0) = x_0$                                      |
-| corrupted decision variable          | `tilde_x` | $\tilde{x}(t) = x(t) + \xi U(t), \quad \tilde{x}(0) = x_0$                          |
-| motor preparation variable           | `y`       | $d\tilde{y}(t) = \lambda(\tilde{x}(t) - \tilde{y}(t)) dt, \quad \tilde{y}(0) = x_0$ |
-| neural drives for the right effector | `z_R`     | $z_R(t) = \max(0,  \tilde{y}(t) - g)$                                               |
-| neural drives for the left effector  | `z_L`     | $z_L(t) = \max(0,  -\tilde{y}(t) - g)$                                              |
+| Name                                  | Label | Equation                                            |
+|---------------------------------------|-------|-----------------------------------------------------|
+| decision variable                     | `x`   | $dx(t) = vdt + \sigma dW(t), \quad x(0) = x_0$      |
+| motor preparation variable            | `y`   | $dy(t) = \lambda(x(t) - y(t)) dt, \quad y(0) = x_0$ |
+| evidence-independent urgency signal   | `u`   | $u(t) = \beta t$                                    |
+| neural drives for the right effector  | `z_R` | $z_R(t) = \max(0,  y(t) - g + u(t))$                |
+| neural drives for the left effector   | `z_L` | $z_L(t) = \max(0,  -y(t) - g + u(t))$               |
 
-*Notes:*
-- $\tilde{y}(t)$ is implemented as `y` in the code for readability, but corresponds to Equation 8 in Dendauw et al. (2024), 
-  as it depends on the corrupted decision variable.
 
 ## Contents
 
-- GCDM.c : core simulation code
-- GCDM.py : Python equivalent
-- simulation.py : Python wrapper (ctypes)
+- `gcdm.c` : core simulation code  
+- `gcdm.so` : compiled shared library for Linux systems  
+- `gcdm.dylib` : compiled shared library for macOS (Apple Silicon / Intel)  
+- `gcdm.py` : Python implementation of the model  
+- `simulation.py` : Python wrapper using `ctypes` to call the compiled library  
 
 ## Usage
 
@@ -56,5 +59,8 @@ The model can be called from Python via `ctypes`. See `simulation.py` for an exa
 
 ## Version
 
-`v2024-paper` corresponds to the version used in Dendauw et al. (2024).
+`v2026.1` is the updated version used for ongoing analyses.
+> ⚠️ **Warning**  
+> This implementation corresponds to an ongoing version of the model described in the preprint above.  
+> For the peer-reviewed version, see `v2024-paper`.
 
