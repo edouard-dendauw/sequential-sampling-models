@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <math.h>
 
-/* updated 4 May 2026
+/* version: 2026.1.2 (updated 10 June 2026)
 compile with : gcc -shared -fPIC -Wshadow -o gcdm.so gcdm.c
 
 =====================================================================
@@ -20,6 +20,7 @@ v      : drift rate (in e/s)
 g      : gating inhibition (in e)
 r      : response bound (in e)
 lambda : leakage (in 1/s)
+xi     : amplitude of transmission noise (in e/sqrt(s))
 beta   : urgency slope (in e/s)
 Te     : mean duration of sensory encoding and corticomuscular delay (in s)
 Tr     : mean duration of residual motor components related to force production (in s)
@@ -36,7 +37,6 @@ firstHitLoc : predicted location of the firstHit for each trial (1 if right side
 coactiv     : predicted binary indicator of coactivation (1 if both neural drives zU and zL are
               simultaneously above 0 at any time during the trial, 0 otherwise)
 
-
 OTHER COMPUTATIONAL VARIABLES =======================================
 s       : diffusion coefficient (in e/sqrt(s))
 dt      : step size dt (in s)
@@ -50,11 +50,6 @@ NOTES ===============================================================
   Python using RT == -1.
 - The variables rangeLow, rangeHigh, and randomTable are used to simulate a random draw from a
   standard normal distribution (see Evans (2019). *Behavior Research Methods*).
-
-UPDATES =============================================================
-2024.1: approximation of the Kalman-Bucy filter at the motor preparation level (constant Kalman gain).
-2026.1a: completely removed transmission noise stage (xi = 0).
-2026.1b: added evidence-independent linear urgency at the motor preparation level.
 */
 
 
@@ -68,11 +63,12 @@ static inline double sample_normal(int rangeLow, int rangeHigh, double *tbl) {
 
 
 // MODEL SIMULATION FUNCTION ========================================
-void GCDM(double x_0, double v, double g, double r, double lambda, double beta,
-          double Te, double Tr, double sv,
-          double *resp, double *RT, double *PMT, double *MT,
-          double *firstHit, double *firstHitLoc, double *coactiv,
-          double s, double dt, int n, int maxiter,
+void GCDM(float x_0, float v, float g, float r,
+          float xi, float lambda, float beta,
+          float Te, float Tr, float sv,
+          int *resp, float *RT, float *PMT, float *MT,
+          float *firstHit, int *firstHitLoc, int *coactiv,
+          float s, float dt, int n, int maxiter,
           int rangeLow, int rangeHigh, double *randomTable) {
 
     // randomize seed of random number generator
@@ -81,7 +77,7 @@ void GCDM(double x_0, double v, double g, double r, double lambda, double beta,
     srand(t1.tv_usec * t1.tv_sec);
 
     // precomputed (to improve performance), dt is constant across trials
-    double sqrt_dt = sqrt(dt);
+    float sqrt_dt = sqrt(dt);
 
     // simulate n trials
     for (int i=0; i<n; i++) {
@@ -97,18 +93,19 @@ void GCDM(double x_0, double v, double g, double r, double lambda, double beta,
 
         // setting the starting point of :
         double x   = x_0; // - the decision variable,
+        double cx  = x;   // - corrupted decision variable,
         double y   = x;   // - the motor prep variable,
         double u   = 0;   // - the urgency,
         double zU  = 0;   // - the neural drive of correct
         double zL  = 0;   // - and incorrect effector.
 
         // compute the drift rate of the trial (including between-trial variability or not).
-        double sampleV;
+        float sampleV;
         if (sv < 0.00001) {  // floating point epsilon guard: treat sv as zero
             sampleV = v;
         } else {
-            double randNormNum = sample_normal(rangeLow, rangeHigh, randomTable);
-            sampleV = v + (sv*randNormNum);
+            double randNormNum1 = sample_normal(rangeLow, rangeHigh, randomTable);
+            sampleV = v + (sv*randNormNum1);
         }
 
         // utils variables.
@@ -118,11 +115,15 @@ void GCDM(double x_0, double v, double g, double r, double lambda, double beta,
         // simulate trial until max number of dt steps allowed (defined by maxiter).
         // starts at 1 because the index 0 is the starting point.
         for (int iter = 1; iter <= maxiter; iter++) {
-            double t = iter * dt;
+            float t = iter * dt;
 
             // decision variable
-            double randNormNum = sample_normal(rangeLow, rangeHigh, randomTable);
-            x = x + (sampleV*dt) + (sqrt_dt*s*randNormNum);
+            double randNormNum2 = sample_normal(rangeLow, rangeHigh, randomTable);
+            x = x + (sampleV*dt) + (sqrt_dt*s*randNormNum2);
+
+            // corrupted decision variable
+            double randNormNum3 = sample_normal(rangeLow, rangeHigh, randomTable);
+            cx = x + (xi/sqrt(dt))*randNormNum3;
 
             // motor preparation variable
             y = y + lambda*(x - y)*dt;

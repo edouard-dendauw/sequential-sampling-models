@@ -2,8 +2,13 @@
 
 ## Reference
 
+Dendauw, E., Logan, G. D., Schall, J. D., Gajdos Preuss, T., Servant, M. (in press).
+Separating decision and motor contributions to behavioral biases induced by manipulating stimulus probability.
+*Cognitive Psychology*. https://doi.org/10.1016/j.cogpsych.2026.101818 (OSF Project: https://osf.io/8z3nj)
+
 Dendauw, E., Evans, N. J., Michel, E., Garnier-Allain, A., Gajdos Preuss, T., & Servant, M. (2025).  
-Deciding with muscles. *PsyArXiv preprint*. https://doi.org/10.31234/osf.io/7uwgn_v2  
+Deciding with muscles. 
+*PsyArXiv preprint*. https://doi.org/10.31234/osf.io/7uwgn_v2  
 
 Dendauw, E., Evans, N. J., Logan, G. D., Haffen, E., Bennabi, D., Gajdos, T., & Servant, M. (2024). 
 The gated cascade diffusion model: An integrated theory of decision making, motor preparation, and motor execution. 
@@ -31,22 +36,24 @@ The gated cascade diffusion model: An integrated theory of decision making, moto
 
 **Definitions :**
 
-| Name                                  | Label | Equation                                            |
-|---------------------------------------|-------|-----------------------------------------------------|
-| decision variable                     | `x`   | $dx(t) = vdt + \sigma dW(t), \quad x(0) = x_0$      |
-| motor preparation variable            | `y`   | $dy(t) = \lambda(x(t) - y(t)) dt, \quad y(0) = x_0$ |
-| evidence-independent urgency signal   | `u`   | $u(t) = \beta t$                                    |
-| neural drives for the right effector  | `z_R` | $z_R(t) = \max(0,  y(t) - g + u(t))$                |
-| neural drives for the left effector   | `z_L` | $z_L(t) = \max(0,  -y(t) - g + u(t))$               |
+| Name                                 | Label | Equation                                                    |
+|--------------------------------------|-------|-------------------------------------------------------------|
+| decision variable                    | `x`   | $dx(t) = vdt + \sigma dW(t), \quad x(0) = x_0$              |
+| corrupted decision variable          | `cx`  | $\tilde{x}(t) = x + \xi U(t), \quad \tilde{x}(0) = x_0$     |
+| motor preparation variable           | `y`   | $dy(t) = \lambda(\tilde{x}(t) - y(t)) dt, \quad y(0) = x_0$ |
+| evidence-independent urgency signal  | `u`   | $u(t) = \beta t$                                            |
+| neural drives for the right effector | `z_R` | $z_R(t) = \max(0,  y(t) - g + u(t))$                        |
+| neural drives for the left effector  | `z_L` | $z_L(t) = \max(0,  -y(t) - g + u(t))$                       |
 
 
 ## Contents
 
-- `gcdm.c` : core simulation code  
-- `gcdm.so` : compiled shared library for Linux systems  
-- `gcdm.dylib` : compiled shared library for macOS (Apple Silicon / Intel)  
-- `gcdm.py` : Python implementation of the model  
-- `simulation.py` : Python wrapper using `ctypes` to call the compiled library  
+- `gcdm.c`      : core simulation code  
+- `gcdm.so`     : compiled shared library for Linux systems  
+- `gcdm.dylib`  : compiled shared library for macOS (Apple Silicon / Intel)  
+- `gcdm.dll`    : compiled shared library for Windows
+- `gcdm.py`     : Python implementation of the model  
+- `simulate.py` : Python wrapper using `ctypes` to call the compiled library  
 
 ## Usage
 
@@ -60,7 +67,7 @@ The model can be called from Python via `ctypes`. See `simulation.py` for an exa
 ## Version
 
 `v2026.1` is the updated version used for ongoing analyses.
-> ⚠️ **Warning**  
+> **Warning**  
 > This implementation corresponds to an ongoing version of the model described in the preprint above.  
 > For the peer-reviewed version, see `v2024-paper`.
 
